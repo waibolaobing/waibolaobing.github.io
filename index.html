@@ -81,6 +81,130 @@
         <header class="article-info clearfix">
   <h1 itemprop="name">
     
+      <a href="/2016/03/04/new-artical/" title="ViewResolver引起的内存泄漏" itemprop="url">ViewResolver引起的内存泄漏</a>
+  </h1>
+  <p class="article-author">By
+       
+		<a href="/about" title="John Doe" target="_blank" itemprop="author">John Doe</a>
+		
+  <p class="article-time">
+    <time datetime="2016-03-04T15:24:03.000Z" itemprop="datePublished"> Published 2016-03-04</time>
+    
+  </p>
+</header>
+    <div class="article-content">
+        
+        <h1 id="ViewResolver引起的内存泄漏"><a href="#ViewResolver引起的内存泄漏" class="headerlink" title="ViewResolver引起的内存泄漏"></a><strong>ViewResolver引起的内存泄漏</strong></h1><p>最近在生产环境中发现一个使用spring mvc的应用由于内存泄漏挂掉了。与大家分享一下我们发现的问题与解决方式</p>
+<h2 id="生产监控的现象"><a href="#生产监控的现象" class="headerlink" title="生产监控的现象"></a><strong>生产监控的现象</strong></h2><ol>
+<li>半个月内，内存的总体用量在不断上升，并且full GC频繁。</li>
+<li>通过ha分析dump文件发现一个大量占用内存的对象，<br>在InternalResourceViewResolver对象中有一个hashMap包含多达四十万条记录，占用了98%的总体内存。</li>
+</ol>
+<h2 id="出现问题的应用功能介绍"><a href="#出现问题的应用功能介绍" class="headerlink" title="出现问题的应用功能介绍"></a><strong>出现问题的应用功能介绍</strong></h2><ol>
+<li>应用负责一个相对独立的业务逻辑，所以web页面与java共同打在一个包内部署。</li>
+<li>可以展示一些H5页面。</li>
+<li>java服务会将一些加密后的信息拼在url中，并发送redirect请求。</li>
+</ol>
+<h2 id="问题出现的原因"><a href="#问题出现的原因" class="headerlink" title="问题出现的原因"></a><strong>问题出现的原因</strong></h2><p>spring mvc通过ViewResolver和View来处理视图，在没有指定特殊的ViewResolver时，<br>默认使用InternalResourceViewResolver作为缺省的Resolver<br>而InternalResourceViewResolver继承自AbstractCachingViewResolver。<br>AbstractCachingViewResolver会将它曾经解析过的视图保持起来，以view的名称作为KEY。<br>每次要解析视图时先检查缓存，如果没有命中缓存则创建一个新视图并加入缓存中。以提高解析视图的性能。</p>
+<pre><code>
+public View resolveViewName(String viewName, Locale locale) throws Exception {
+        if(!this.isCache()) {
+            return this.createView(viewName, locale);
+        } else {
+            Object cacheKey = this.getCacheKey(viewName, locale);
+            View view = (View)this.viewAccessCache.get(cacheKey);
+            if(view == null) {
+                Map var5 = this.viewCreationCache;
+                synchronized(this.viewCreationCache) {
+                    view = (View)this.viewCreationCache.get(cacheKey);
+                    if(view == null) {
+                        view = this.createView(viewName, locale);
+                        if(view == null && this.cacheUnresolved) {
+                            view = UNRESOLVED_VIEW;
+                        }
+                        if(view != null) {
+                            this.viewAccessCache.put(cacheKey, view);
+                            this.viewCreationCache.put(cacheKey, view);
+                            if(this.logger.isTraceEnabled()) {
+                                this.logger.trace("Cached view [" + cacheKey + "]");
+                            }
+                        }
+                    }
+                }
+            }
+
+            return view != UNRESOLVED_VIEW?view:null;
+        }
+    }
+</code></pre>
+
+
+<p>然而在我们的应用场景下，url中包含了部分加密信息，每个redirectUrl都是不同的，那么每一个view也都是不同的，viewResolver将在缓存中插入大量的view。最终<br>导致内存耗尽，应用挂掉。  </p>
+<h2 id="解决方式"><a href="#解决方式" class="headerlink" title="解决方式"></a><strong>解决方式</strong></h2><p>在这里为大家提供几种解决方式。</p>
+<ol>
+<li><p>简单粗暴：将AbstractCachingViewResolver的cacheLimit属性设为0，以后任何view都不会被缓存(性能下降)。</p>
+</li>
+<li><p>由于我们的应用还会提供一些H5页面服务，所以需要采用一些更优雅的方式解决这个问题</p>
+<ol>
+<li>重写一个类myViewResolver继承默认ViewResolver(InternalResourceViewResolver)。</li>
+<li>重写父类AbstractCachingViewResolver的resolveViewName方法.</li>
+<li>将myViewResolver设为默认的ViewResolver。</li>
+</ol>
+<pre><code>
+public class myViewResolver extends InternalResourceViewResolver {
+
+@Override
+public View resolveViewName(String viewName, Locale locale) throws Exception {
+   if (viewName.startsWith("redirect")){
+       return createView(viewName, locale);
+   }
+   return super.resolveViewName(viewName, locale);
+}
+</code></pre>
+
+</li>
+</ol>
+<p>这样一来，当生成的vivew是redirect时，直接创建一个新的view并返回不放入缓存中。如果是其他的view则还是原来的处理方式，放入缓存中进行加速。</p>
+
+        
+        
+        <p class="article-more-link">
+          
+       </p>
+    </div>
+    <footer class="article-footer clearfix">
+<div class="article-catetags">
+
+
+  <div class="article-tags">
+  
+  <span></span> <a href="/tags/Spring-mvc-memory-leak-ViewResolver/">Spring mvc memory leak ViewResolver</a>
+  </div>
+
+</div>
+
+
+
+
+<div class="comments-count">
+	
+</div>
+
+</footer>
+
+
+    </article>
+
+
+
+
+
+
+   
+    
+    <article class="post-expand post" itemprop="articleBody"> 
+        <header class="article-info clearfix">
+  <h1 itemprop="name">
+    
       <a href="/2016/03/03/hello-world/" title="Hello World" itemprop="url">Hello World</a>
   </h1>
   <p class="article-author">By
@@ -147,6 +271,17 @@
   
 
   
+<div class="tagslist">
+	<p class="asidetitle">Tags</p>
+		<ul class="clearfix">
+		
+			
+				<li><a href="/tags/Spring-mvc-memory-leak-ViewResolver/" title="Spring mvc memory leak ViewResolver">Spring mvc memory leak ViewResolver<sup>1</sup></a></li>
+			
+		
+		</ul>
+</div>
+
 
   <div class="linkslist">
   <p class="asidetitle">Links</p>
