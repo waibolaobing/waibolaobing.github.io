@@ -18,7 +18,7 @@
 生产监控的现象
 半个月内，内存的总体用量在不断上升，并且full GC频繁。
 通过ha分析dump文件发现一个大量占用内存的对象，在InternalResourceViewResolver对象中有一个hashMap包含多达四十万条记录，占用了98%">
-<meta property="og:updated_time" content="2016-03-05T01:01:48.391Z">
+<meta property="og:updated_time" content="2016-03-05T01:16:04.127Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="ViewResolver引起的内存泄漏">
 <meta name="twitter:description" content="ViewResolver引起的内存泄漏最近在生产环境中发现一个使用spring mvc的应用由于内存泄漏挂掉了。与大家分享一下我们发现的问题与解决方式
@@ -299,21 +299,18 @@ public View resolveViewName(String viewName, Locale locale) throws Exception {
 <li>重写父类AbstractCachingViewResolver的resolveViewName方法.</li>
 <li>将myViewResolver设为默认的ViewResolver。</li>
 </ol>
-<pre><code>
-public class myViewResolver extends InternalResourceViewResolver {
+</li>
+</ol>
+<pre><code> public class myViewResolver extends InternalResourceViewResolver {
 
 @Override
 public View resolveViewName(String viewName, Locale locale) throws Exception {
-   if (viewName.startsWith("redirect")){
-       return createView(viewName, locale);
-   }
-   return super.resolveViewName(viewName, locale);
+    if (viewName.startsWith(&quot;redirect&quot;)){
+        return createView(viewName, locale);
+    }
+    return super.resolveViewName(viewName, locale);
 }
-</code></pre>
-
-</li>
-</ol>
-<p>这样一来，当生成的vivew是redirect时，直接创建一个新的view并返回不放入缓存中。如果是其他的view则还是原来的处理方式，放入缓存中进行加速。</p>
+</code></pre><p>这样一来，当生成的vivew是redirect时，直接创建一个新的view并返回不放入缓存中。如果是其他的view则还是原来的处理方式，放入缓存中进行加速。</p>
 
       
     </div>
