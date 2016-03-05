@@ -4,12 +4,12 @@
   <meta charset="utf-8">
   
   <meta http-equiv="X-UA-Compatible" content="IE=edge" >
-  <title>waibolaobing的技术博客</title>
+  <title>Tag: memory leak | waibolaobing的技术博客</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
   <meta name="description">
 <meta property="og:type" content="website">
 <meta property="og:title" content="waibolaobing的技术博客">
-<meta property="og:url" content="http://yoursite.com/index.html">
+<meta property="og:url" content="http://yoursite.com/tags/memory-leak/index.html">
 <meta property="og:site_name" content="waibolaobing的技术博客">
 <meta property="og:description">
 <meta name="twitter:card" content="summary">
@@ -198,137 +198,52 @@
 
       <div class="body-wrap">
   
-    <article id="post-new-artical" class="article article-type-post" itemscope itemprop="blogPost">
   
-    <div class="article-meta">
-      <a href="/2016/03/04/new-artical/" class="article-date">
-  	<time datetime="2016-03-04T15:24:03.000Z" itemprop="datePublished">2016-03-04</time>
+    
+    
+      
+      
+      <section class="archives-wrap">
+        <div class="archive-year-wrap">
+          <a href="/archives/2016" class="archive-year">2016</a>
+        </div>
+        <div class="archives">
+    
+    <article class="archive-article archive-type-post">
+  <div class="archive-article-inner">
+    <header class="archive-article-header">
+      	<div class="article-meta">
+	      	<a href="/2016/03/04/new-artical/" class="archive-article-date">
+  	<time datetime="2016-03-04T15:24:03.000Z" itemprop="datePublished">Mar 4</time>
 </a>
-    </div>
-  
-  <div class="article-inner">
-    
-      <input type="hidden" class="isFancy" />
-    
-    
-      <header class="article-header">
-        
+        </div>
+    	 
   
     <h1 itemprop="name">
-      <a class="article-title" href="/2016/03/04/new-artical/">ViewResolver引起的内存泄漏</a>
+      <a class="archive-article-title" href="/2016/03/04/new-artical/">ViewResolver引起的内存泄漏</a>
     </h1>
   
 
-      </header>
-      
-    
-    <div class="article-entry" itemprop="articleBody">
-      
-        <h1 id="ViewResolver引起的内存泄漏"><a href="#ViewResolver引起的内存泄漏" class="headerlink" title="ViewResolver引起的内存泄漏"></a><strong>ViewResolver引起的内存泄漏</strong></h1><p>最近在生产环境中发现一个使用spring mvc的应用由于内存泄漏挂掉了。与大家分享一下我们发现的问题与解决方式</p>
-<h2 id="生产监控的现象"><a href="#生产监控的现象" class="headerlink" title="生产监控的现象"></a><strong>生产监控的现象</strong></h2><ol>
-<li>半个月内，内存的总体用量在不断上升，并且full GC频繁。</li>
-<li>通过ha分析dump文件发现一个大量占用内存的对象，<br>在InternalResourceViewResolver对象中有一个hashMap包含多达四十万条记录，占用了98%的总体内存。</li>
-</ol>
-<h2 id="出现问题的应用功能介绍"><a href="#出现问题的应用功能介绍" class="headerlink" title="出现问题的应用功能介绍"></a><strong>出现问题的应用功能介绍</strong></h2><ol>
-<li>应用负责一个相对独立的业务逻辑，所以web页面与java共同打在一个包内部署。</li>
-<li>可以展示一些H5页面。</li>
-<li>java服务会将一些加密后的信息拼在url中，并发送redirect请求。</li>
-</ol>
-      
-    </div>
-    
-    <div class="article-info article-info-index">
-      
-      
+        <div class="article-info info-on-right">
+          
 	<div class="article-tag tagcloud">
 		<ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Spring-mvc/">Spring mvc</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/ViewResolver/">ViewResolver</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/memory-leak/">memory leak</a></li></ul>
 	</div>
 
-      
+          
 
-      
-        <p class="article-more-link">
-          <a  href="/2016/03/04/new-artical/#more">more >></a>
-        </p>
-      
-      <div class="clearfix"></div>
-    </div>
-    
+        </div>
+        <div class="clearfix"></div>
+    </header>
   </div>
-  
 </article>
-
-
-
-
-
-
-
-
-
   
-    <article id="post-hello-world" class="article article-type-post" itemscope itemprop="blogPost">
   
-    <div class="article-meta">
-      <a href="/2016/03/03/hello-world/" class="article-date">
-  	<time datetime="2016-03-03T14:55:27.929Z" itemprop="datePublished">2016-03-03</time>
-</a>
-    </div>
+    </div></section>
   
-  <div class="article-inner">
+
     
-      <input type="hidden" class="isFancy" />
-    
-    
-      <header class="article-header">
-        
-  
-    <h1 itemprop="name">
-      <a class="article-title" href="/2016/03/03/hello-world/">Hello World</a>
-    </h1>
-  
 
-      </header>
-      
-    
-    <div class="article-entry" itemprop="articleBody">
-      
-        <p>Welcome to <a href="https://hexo.io/" target="_blank" rel="external">Hexo</a>! This is your very first post. Check <a href="https://hexo.io/docs/" target="_blank" rel="external">documentation</a> for more info. If you get any problems when using Hexo, you can find the answer in <a href="https://hexo.io/docs/troubleshooting.html" target="_blank" rel="external">troubleshooting</a> or you can ask me on <a href="https://github.com/hexojs/hexo/issues" target="_blank" rel="external">GitHub</a>.</p>
-<h2 id="Quick-Start"><a href="#Quick-Start" class="headerlink" title="Quick Start"></a>Quick Start</h2><h3 id="Create-a-new-post"><a href="#Create-a-new-post" class="headerlink" title="Create a new post"></a>Create a new post</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ hexo new <span class="string">"My New Post"</span></span><br></pre></td></tr></table></figure>
-<p>More info: <a href="https://hexo.io/docs/writing.html" target="_blank" rel="external">Writing</a></p>
-<h3 id="Run-server"><a href="#Run-server" class="headerlink" title="Run server"></a>Run server</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ hexo server</span><br></pre></td></tr></table></figure>
-<p>More info: <a href="https://hexo.io/docs/server.html" target="_blank" rel="external">Server</a></p>
-<h3 id="Generate-static-files"><a href="#Generate-static-files" class="headerlink" title="Generate static files"></a>Generate static files</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ hexo generate</span><br></pre></td></tr></table></figure>
-<p>More info: <a href="https://hexo.io/docs/generating.html" target="_blank" rel="external">Generating</a></p>
-<h3 id="Deploy-to-remote-sites"><a href="#Deploy-to-remote-sites" class="headerlink" title="Deploy to remote sites"></a>Deploy to remote sites</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ hexo deploy</span><br></pre></td></tr></table></figure>
-<p>More info: <a href="https://hexo.io/docs/deployment.html" target="_blank" rel="external">Deployment</a></p>
-
-      
-    </div>
-    
-    <div class="article-info article-info-index">
-      
-      
-      
-
-      
-      <div class="clearfix"></div>
-    </div>
-    
-  </div>
-  
-</article>
-
-
-
-
-
-
-
-
-
-  
-  
 </div>
       <footer id="footer">
   <div class="outer">
@@ -352,10 +267,10 @@
 		fancybox: true,
 		mathjax: true,
 		animate: true,
-		isHome: true,
+		isHome: false,
 		isPost: false,
 		isArchive: false,
-		isTag: false,
+		isTag: true,
 		isCategory: false,
 		open_in_new: false
 	}
