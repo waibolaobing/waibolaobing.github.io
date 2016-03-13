@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" >
+  <title>Redis的分布式锁实现 | waibolaobing的技术博客</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="译自Redis官方文档
+在多线程共享临界资源的场景下，分布式锁是一种非常重要的组件。许多库使用不同的方式使用redis实现一个分布式锁管理。其中有一部分简单的实现方式可靠性不足，可以通过一些简单的修改提高其可靠性。这篇文章介绍了一种指导性的redis分布式锁算法RedLock，RedLock比起单实例的实现方式更加安全。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Redis的分布式锁实现">
+<meta property="og:url" content="http://yoursite.com/2016/03/13/redlock-2016-03-13/index.html">
+<meta property="og:site_name" content="waibolaobing的技术博客">
+<meta property="og:description" content="译自Redis官方文档
+在多线程共享临界资源的场景下，分布式锁是一种非常重要的组件。许多库使用不同的方式使用redis实现一个分布式锁管理。其中有一部分简单的实现方式可靠性不足，可以通过一些简单的修改提高其可靠性。这篇文章介绍了一种指导性的redis分布式锁算法RedLock，RedLock比起单实例的实现方式更加安全。">
+<meta property="og:updated_time" content="2016-03-13T11:14:45.106Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Redis的分布式锁实现">
+<meta name="twitter:description" content="译自Redis官方文档
+在多线程共享临界资源的场景下，分布式锁是一种非常重要的组件。许多库使用不同的方式使用redis实现一个分布式锁管理。其中有一部分简单的实现方式可靠性不足，可以通过一些简单的修改提高其可靠性。这篇文章介绍了一种指导性的redis分布式锁算法RedLock，RedLock比起单实例的实现方式更加安全。">
+  
+    <link rel="alternative" href="/atom.xml" title="waibolaobing的技术博客" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="/favicon.png">
+  
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+
+<body>
+  <div id="container">
+    <div class="left-col">
+    <div class="overlay"></div>
+<div class="intrude-less">
+	<header id="header" class="inner">
+		<a href="/" class="profilepic">
+			
+			<img lazy-src="null" class="js-avatar">
+			
+		</a>
+
+		<hgroup>
+		  <h1 class="header-author"><a href="/">waibolaobing</a></h1>
+		</hgroup>
+
+		
+
+		
+			<div class="switch-btn">
+				<div class="icon">
+					<div class="icon-ctn">
+						<div class="icon-wrap icon-house" data-idx="0">
+							<div class="birdhouse"></div>
+							<div class="birdhouse_holes"></div>
+						</div>
+						<div class="icon-wrap icon-ribbon hide" data-idx="1">
+							<div class="ribbon"></div>
+						</div>
+						
+						<div class="icon-wrap icon-link hide" data-idx="2">
+							<div class="loopback_l"></div>
+							<div class="loopback_r"></div>
+						</div>
+						
+						
+						<div class="icon-wrap icon-me hide" data-idx="3">
+							<div class="user"></div>
+							<div class="shoulder"></div>
+						</div>
+						
+					</div>
+					
+				</div>
+				<div class="tips-box hide">
+					<div class="tips-arrow"></div>
+					<ul class="tips-inner">
+						<li>Menu</li>
+						<li>Tags</li>
+						
+						<li>Links</li>
+						
+						
+						<li>About</li>
+						
+					</ul>
+				</div>
+			</div>
+		
+
+		<div class="switch-area">
+			<div class="switch-wrap">
+				<section class="switch-part switch-part1">
+					<nav class="header-menu">
+						<ul>
+						
+							<li><a href="/">主页</a></li>
+				        
+							<li><a href="/archives">所有文章</a></li>
+				        
+						</ul>
+					</nav>
+					<nav class="header-nav">
+						<div class="social">
+							
+								<a class="github" target="_blank" href="#" title="github">github</a>
+					        
+								<a class="weibo" target="_blank" href="#" title="weibo">weibo</a>
+					        
+								<a class="rss" target="_blank" href="#" title="rss">rss</a>
+					        
+								<a class="zhihu" target="_blank" href="#" title="zhihu">zhihu</a>
+					        
+						</div>
+					</nav>
+				</section>
+				
+				
+				<section class="switch-part switch-part2">
+					<div class="widget tagcloud" id="js-tagcloud">
+						<a href="/tags/Spring-mvc/" style="font-size: 10px;">Spring mvc</a> <a href="/tags/ViewResolver/" style="font-size: 10px;">ViewResolver</a> <a href="/tags/distlock/" style="font-size: 10px;">distlock</a> <a href="/tags/memory-leak/" style="font-size: 10px;">memory leak</a> <a href="/tags/redis/" style="font-size: 10px;">redis</a>
+					</div>
+				</section>
+				
+				
+				
+				<section class="switch-part switch-part3">
+					<div id="js-friends">
+					
+			          <a target="_blank" class="main-nav-link switch-friends-link" href="http://localhost:4000/">奥巴马的博客</a>
+			        
+			          <a target="_blank" class="main-nav-link switch-friends-link" href="http://localhost:4000/">卡卡的美丽传说</a>
+			        
+			          <a target="_blank" class="main-nav-link switch-friends-link" href="http://localhost:4000/">本泽马的博客</a>
+			        
+			          <a target="_blank" class="main-nav-link switch-friends-link" href="http://localhost:4000/">吉格斯的博客</a>
+			        
+			          <a target="_blank" class="main-nav-link switch-friends-link" href="http://localhost:4000/">习大大大不同</a>
+			        
+			          <a target="_blank" class="main-nav-link switch-friends-link" href="http://localhost:4000/">托蒂的博客</a>
+			        
+			        </div>
+				</section>
+				
+
+				
+				
+				<section class="switch-part switch-part4">
+				
+					<div id="js-aboutme">我是谁，我从哪里来，我到哪里去？我就是我，是颜色不一样的吃货…</div>
+				</section>
+				
+			</div>
+		</div>
+	</header>				
+</div>
+
+    </div>
+    <div class="mid-col">
+      <nav id="mobile-nav">
+  	<div class="overlay">
+  		<div class="slider-trigger"></div>
+  		<h1 class="header-author js-mobile-header hide">waibolaobing</h1>
+  	</div>
+	<div class="intrude-less">
+		<header id="header" class="inner">
+			<div class="profilepic">
+			
+				<img lazy-src="null" class="js-avatar">
+			
+			</div>
+			<hgroup>
+			  <h1 class="header-author">waibolaobing</h1>
+			</hgroup>
+			
+			<nav class="header-menu">
+				<ul>
+				
+					<li><a href="/">主页</a></li>
+		        
+					<li><a href="/archives">所有文章</a></li>
+		        
+		        <div class="clearfix"></div>
+				</ul>
+			</nav>
+			<nav class="header-nav">
+				<div class="social">
+					
+						<a class="github" target="_blank" href="#" title="github">github</a>
+			        
+						<a class="weibo" target="_blank" href="#" title="weibo">weibo</a>
+			        
+						<a class="rss" target="_blank" href="#" title="rss">rss</a>
+			        
+						<a class="zhihu" target="_blank" href="#" title="zhihu">zhihu</a>
+			        
+				</div>
+			</nav>
+		</header>				
+	</div>
+</nav>
+
+      <div class="body-wrap"><article id="post-redlock-2016-03-13" class="article article-type-post" itemscope itemprop="blogPost">
+  
+    <div class="article-meta">
+      <a href="/2016/03/13/redlock-2016-03-13/" class="article-date">
+  	<time datetime="2016-03-13T10:15:09.000Z" itemprop="datePublished">2016-03-13</time>
+</a>
+    </div>
+  
+  <div class="article-inner">
+    
+      <input type="hidden" class="isFancy" />
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      Redis的分布式锁实现
+    </h1>
+  
+
+      </header>
+      
+      <div class="article-info article-info-post">
+        
+	<div class="article-tag tagcloud">
+		<ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/distlock/">distlock</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/redis/">redis</a></li></ul>
+	</div>
+
+        
+
+        <div class="clearfix"></div>
+      </div>
+      
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>译自<a href="http://redis.io/topics/distlock" target="_blank" rel="external">Redis官方文档</a></p>
+<p>在多线程共享临界资源的场景下，分布式锁是一种非常重要的组件。<br>许多库使用不同的方式使用redis实现一个分布式锁管理。<br>其中有一部分简单的实现方式可靠性不足，可以通过一些简单的修改提高其可靠性。<br>这篇文章介绍了一种指导性的redis分布式锁算法RedLock，RedLock比起单实例的实现方式更加安全。</p>
+<a id="more"></a>  
+<p>在介绍RedLock算法之前，我们列出了一些已经实现了分布式锁的类库供大家参考。</p>
+<p>Redlock-rb (Ruby 实现).<br>Redlock-py (Python 实现)<br>Redlock-php (PHP 实现)<br>PHPRedisMutex (further PHP 实现)??<br>Redsync.go (Go 实现)<br>Redisson (Java 实现)<br>Redis::DistLock (Perl 实现)<br>Redlock-cpp (C++ 实现)<br>Redlock-cs (C#/.NET 实现)<br>RedLock.net (C#/.NET 实现<br>ScarletLock (C# .NET 实现)<br>node-redlock (NodeJS 实现)  </p>
+<h2 id="分布式锁应该具有的特性-Safety-amp-Liveness"><a href="#分布式锁应该具有的特性-Safety-amp-Liveness" class="headerlink" title="分布式锁应该具有的特性(Safety &amp; Liveness)"></a><strong>分布式锁应该具有的特性(Safety &amp; Liveness)</strong></h2><p>我们将从三个特性的角度出发来设计RedLock模型：  </p>
+<ol>
+<li><strong>安全性(Safety)</strong>:排他性.在任意时刻，只有一个客户端可以获得锁。    </li>
+<li><strong>避免死锁</strong>：客户端最终一定可以获得锁，即使锁住某个资源的客户端在释放锁之前崩溃或者网络不可达。  </li>
+<li><strong>容错性</strong>：只要Redsi集群中的大部分节点存活，client就可以进行加锁解锁操作。  </li>
+</ol>
+<h2 id="故障切换实现方式的局限性"><a href="#故障切换实现方式的局限性" class="headerlink" title="故障切换实现方式的局限性"></a><strong>故障切换实现方式的局限性</strong></h2><p>通过Redis为某个资源加锁的最简单方式就是在一个Redis实例中使用过期特性(expire)创建一个key,<br>如果获得锁的客户端没有释放锁，那么在一定时间内这个Key将会自动删除，避免死锁。<br>这种做法在表面上看起来可行，但分布式锁作为架构中的一个组件,为了避免Redis宕机引起锁服务不可用,<br>我们需要为Redis实例(master)增加热备(slave)，如果master不可用则将slave提升为master。<br>这种主从的配置方式存在一定的安全风险，由于Redis的<strong>主从复制是异步</strong>进行的，<br>可能会发生多个客户端同时持有一个锁的现象。</p>
+<p>此类场景是非常典型的<strong>竞态模型</strong>：</p>
+<ol>
+<li>Client A 获得在master节点获得了锁</li>
+<li>在master将key备份到slave节点之前，master宕机</li>
+<li>slave 被提升为master</li>
+<li>Client B 在新的master节点处获得了锁，Client A也持有这个锁。</li>
+</ol>
+<h2 id="如何正确实现单实例的锁"><a href="#如何正确实现单实例的锁" class="headerlink" title=" 如何正确实现单实例的锁"></a> <strong>如何正确实现单实例的锁</strong></h2><p>在单redis实例中实现锁是分布式锁的基础，在解决前文提到的单实例的不足之前，我们先了解如何在单点中正确的实现锁。<br>如果你的应用可以容忍偶尔发生竞态问题，那么单实例锁就足够了。</p>
+<p>我们通过以下命令对资源加锁<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">SET resource_name my_random_value NX PX 30000</span><br></pre></td></tr></table></figure></p>
+<p>SET NX 命令只会在Key不存在的时给key赋值，PX 命令通知redis保存这个key 30000ms。<br>my_random_value必须是全局唯一的值。这个随机数在释放锁时保证释放锁操作的安全性。</p>
+<p>通过下面的脚本为申请成功的锁解锁:<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">if redis.call(&quot;get&quot;,KEYS[1]) == ARGV[1] then</span><br><span class="line">     return redis.call(&quot;del&quot;,KEYS[1])</span><br><span class="line"> else</span><br><span class="line">     return 0</span><br><span class="line"> end</span><br></pre></td></tr></table></figure></p>
+<p>如果key对应的Value一致，则删除这个key。</p>
+<p> 通过这个方式释放锁是为了避免client释放了其他client申请的锁。<br> 例如:</p>
+<ol>
+<li>Client A 获得了一个锁，</li>
+<li>当尝试释放锁的请求发送给Redis时被阻塞，没有及时到达Redis。</li>
+<li>锁定时间超时，Redis认为锁的租约到期，释放了这个锁。</li>
+<li>client B 重新申请到了这个锁</li>
+<li>client A的解锁请求到达,将Client B锁定的key解锁</li>
+<li>Client C 也获得了锁</li>
+<li>Client B client C 同时持有锁。  </li>
+</ol>
+<p> 通过执行上面脚本的方式释放锁，Client的解锁操作只会解锁自己曾经加锁的资源。我们推荐通从 /dev/urandom/中取20个byte作为随机数或者采用更加简单的方式，<br> 例如使用RC4加密算法在/dev/urandom中得到一个种子(Seed)，然后生成一个伪随机流。也可以用更简单的使用时间戳+客户端编号的方式生成随机数，<br> 这种方式的安全性较差一些，但是对于绝大多数的场景来说也已经足够安全了。</p>
+<p> <strong>PX</strong> 操作后面的参数代表的是这key的存活时间，称作锁过期时间。</p>
+<ol>
+<li>当资源被锁定超过这个时间，锁将自动释放。</li>
+<li>获得锁的客户端如果没有在这个时间窗口内完成操作,就可能会有其他客户端获得锁。引起争用问题。</li>
+</ol>
+<p> 通过上面的两个操作，我们可以完成获得锁和释放锁操作。如果这个系统不宕机，那么单点的锁服务已经足够安全,接下来我们开始把场景扩展到分布式系统。</p>
+<h2 id="RedLock算法介绍"><a href="#RedLock算法介绍" class="headerlink" title=" RedLock算法介绍"></a> <strong>RedLock算法介绍</strong></h2><p>下面例子中的分布式环境包含N个Redis Master节点，这些节点相互独立，无需备份。这些节点尽可能相互隔离的部署在不同的物理机或虚拟机上(故障隔离)。<br>节点数量暂定为5个(在需要投票的集群中,5个节点的配置是比较合理的最小配置方式)。获得锁和释放锁的方式仍然采用之前介绍的方法。</p>
+<p>一个Client想要获得一个锁需要以下几个操作：</p>
+<ol>
+<li>得到本地时间</li>
+<li>Client使用相同的key和随机数,按照顺序在每个Master实例中尝试获得锁。在获得锁的过程中，为每一个锁操作设置一个<strong>快速失败时间</strong>(如果想要获得一个10秒的锁，  那么每一个锁操作的失败时间设为5-50ms)。<br>这样避免客户端与一个已经故障的Master通信占用太长时间，通过快速失败的方式尽快的与集群中的其他节点完成锁操作。</li>
+<li>客户端计算出与master获得锁操作过程中消耗的时间，当且仅当Client获得锁消耗的时间小于锁的存活时间，并且在一半以上的master节点中获得锁。才认为client成功的获得了锁。</li>
+<li>如果已经获得了锁，Client执行任务的时间窗口是锁的存活时间减去获得锁消耗的时间。  </li>
+<li>如果Client获得锁的数量不足一半以上，或获得锁的时间超时，那么认为获得锁失败。客户端需要尝试在所有的master节点中释放锁，<br>即使在第二步中没有成功获得该Master节点中的锁，仍要进行释放操作。</li>
+</ol>
+<h2 id="RedLock能保证锁同步吗？"><a href="#RedLock能保证锁同步吗？" class="headerlink" title="RedLock能保证锁同步吗？"></a><strong>RedLock能保证锁同步吗？</strong></h2><p>这个算法成立的一个条件是：即使集群中没有同步时钟，各个进程的时间流逝速度也要大体一致，并且<br>误差与锁存活时间相比是比较小的。实际应用中的计算机也能满足这个条件：各个计算机中间有几毫秒的时钟漂移(clock drift)。</p>
+<h2 id="失败重试机制"><a href="#失败重试机制" class="headerlink" title=" 失败重试机制"></a> <strong>失败重试机制</strong></h2><p>如果一个Client无法获得锁，它将在一个随机延时后开始重试。使用随机延时的目的是为了与其他<br>申请同一个锁的Client错开申请时间，减少脑裂(split brain)发生的可能性。<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">三个Client同时尝试获得锁，分别获得了2,2,1个实例中的锁，三个锁请求全部失败。</span><br></pre></td></tr></table></figure></p>
+<p>一个client在全部Redis实例中完成的申请时间越短，发生脑裂的时间窗口越小。所以比较理想的做法是<strong>同时向N个Redis实例发出异步的SET请求</strong>。<br>当Client没有在大多数Master中获得锁时，立即释放已经取得的锁时非常必要的。(PS.当极端情况发生时，比如获得了部分锁以后，client发生网络故障，无法再释放锁资源。<br>那么其他client重新获得锁的时间将是锁的过期时间)。<strong>无论Client认为在指定的Master中有没有获得锁，都需要执行释放锁操作</strong>。</p>
+<h2 id="RedLock算法安全性分析"><a href="#RedLock算法安全性分析" class="headerlink" title="RedLock算法安全性分析"></a><strong>RedLock算法安全性分析</strong></h2><p>我们将从不同的场景分析RedLock算法是否足够安全。首先我们假设一个client在大多数的Redis实例中取得了锁,那么:</p>
+<ol>
+<li>每个实例中的锁的剩余存活时间相等为TTL。</li>
+<li>每个锁请求到达各个Redis实例中的时间有差异。</li>
+<li>第一个锁成功请求最先在T1后返回，最后返回的请求在T2后返回。(T1,T2都小于最大失败时间)</li>
+<li>并且每个实例之间存在时钟漂移CLOCK_DRIFT(Time Drift)。</li>
+</ol>
+<p>于是，最先被SET的锁将在TTL-(T2-T1)-CLOCK_DIRFT后自动过期，其他的锁将在之后陆续过期。所以可以得到结论：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">可以保证所有的key这段时间内是同时被锁住的。</span><br></pre></td></tr></table></figure></p>
+<p>在这段时间内，一半以上的Redis实例中这个key都处在被锁定状态，其他的客户端无法获得这个锁。</p>
+<h2 id="锁的可用性分析-Liveness"><a href="#锁的可用性分析-Liveness" class="headerlink" title="锁的可用性分析(Liveness)"></a><strong>锁的可用性分析(Liveness)</strong></h2><p>分布式锁系统的可用性主要依靠以下三种机制</p>
+<ol>
+<li>锁的自动释放(key expire)，最终锁将被释放并且被再次申请。</li>
+<li>客户端在未申请到锁以及申请到锁并完成任务后都将进行释放锁的操作，所以大部分情况下都不需要等待到锁的自动释放期限，其他client即可重新申请到锁。</li>
+<li>假设一个Client在大多数Redis实例中申请锁请求所成功花费的时间为Tac。那么如果某个Client第一次没有申请到锁，需要重试之前，必须等待一段时间T。T需要<strong>远大于</strong>Tac。  因为多个Client同时请求锁资源，他们有可能都无法获得一半以上的锁，导致脑裂双方均失败。设置较久的重试时间是为了减少脑裂产生的概率。</li>
+</ol>
+<p>如果一直持续的发生网络故障，那么没有客户端可以申请到锁。分布式锁系统也将无法提供服务直到网络故障恢复为止。</p>
+<h2 id="性能，故障恢复与文件同步"><a href="#性能，故障恢复与文件同步" class="headerlink" title="性能，故障恢复与文件同步"></a><strong>性能，故障恢复与文件同步</strong></h2><p>用户使用redis作为锁服务的主要优势是性能。其性能的指标有两个  </p>
+<ol>
+<li>加锁和解锁的延迟</li>
+<li>每秒可以进行多少加锁和解锁操作  </li>
+</ol>
+<p>所以，在客户端与N个Redis节点通信时，必须使用<strong>多路发送</strong>的方式(multiplex)，减少通信延时。</p>
+<p>为了实现故障恢复还需要考虑<strong>数据持久化</strong>的问题。  </p>
+<p>我们还是从某个特定的场景分析：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">Redis实例的配置不进行任何持久化,集群中5个实例 M1,M2,M3,M4,M5</span><br><span class="line">client A获得了M1,M2,M3实例的锁。</span><br><span class="line">此时M1宕机并重启。</span><br><span class="line">由于没有进行持久化，M1重启后不存在任何KEY</span><br><span class="line">client B获得M4,M5和重启后的M1中的锁。</span><br><span class="line">此时client A 和Client B 同时获得锁</span><br></pre></td></tr></table></figure></p>
+<p>如果使用<strong>AOF</strong>的方式进行持久化，情况会稍好一些。例如我们可以向某个实例发送<strong>shutdown</strong>和<strong>restart</strong>命令。即使节点被关闭，EX设置的时间仍在计算，锁的排他性仍能保证。</p>
+<p>但当Redis发生电源瞬断的情况又会遇到有新的问题出现。如果Redis配置中的进行磁盘持久化的时间是每分钟进行，那么会有部分key在重新启动后丢失。<br>如果为了避免key的丢失，将持久化的设置改为Always,那么性能将大幅度下降。</p>
+<p>另一种解决方案是在这台实例重新启动后，令其在一定时间内不参与任何加锁。在间隔了一整个锁生命周期后，重新参与到锁服务中。这样可以保证所有在这台实例宕机期间内的key都已经过期或被释放。</p>
+<p>延时重启机制能够保证Redis即使不使用任何持久化策略，仍能保证锁的可靠性。但是这种策略可能会牺牲掉一部分可用性。<br>例如集群中超过半数的实例都宕机了，那么整个分布式锁系统需要等待一整个锁有效期的时间才能重新提供锁服务。</p>
+<h2 id="使锁算法更加可靠：锁续约"><a href="#使锁算法更加可靠：锁续约" class="headerlink" title="使锁算法更加可靠：锁续约"></a><strong>使锁算法更加可靠：锁续约</strong></h2><p>如果Client进行的工作耗时较短，那么可以默认使用一个较小的锁有效期，然后实现一个锁续约机制。</p>
+<p>当一个Client在工作计算到一半时发现锁的剩余有效期不足。可以向Redis实例发送续约锁的Lua脚本。如果Client在一定的期限内(耗间与申请锁的耗时接近)成功的续约了半数以上的实例，那么续约锁成功。</p>
+<p>为了提高系统的可用性，每个Client申请锁续约的次数需要有一个最大限制，避免其不断续约造成该key长时间不可用。</p>
+
+      
+    </div>
+    
+  </div>
+  
+    
+<nav id="article-nav">
+  
+  
+    <a href="/2016/03/04/new-artical/" id="article-nav-older" class="article-nav-link-wrap">
+      <div class="article-nav-title">ViewResolver引起的内存泄漏</div>
+      <strong class="article-nav-caption">></strong>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+
+<div class="share_jia">
+	<!-- JiaThis Button BEGIN -->
+	<div class="jiathis_style">
+		<span class="jiathis_txt">Share to: &nbsp; </span>
+		<a class="jiathis_button_facebook"></a> 
+    <a class="jiathis_button_twitter"></a>
+    <a class="jiathis_button_plus"></a> 
+    <a class="jiathis_button_tsina"></a>
+		<a class="jiathis_button_cqq"></a>
+		<a class="jiathis_button_douban"></a>
+		<a class="jiathis_button_weixin"></a>
+		<a class="jiathis_button_tumblr"></a>
+    <a href="http://www.jiathis.com/share" class="jiathis jiathis_txt jtico jtico_jiathis" target="_blank"></a>
+	</div>
+	<script type="text/javascript" src="http://v3.jiathis.com/code/jia.js?uid=1405949716054953" charset="utf-8"></script>
+	<!-- JiaThis Button END -->
+</div>
+
+
+
+
+
+
+<div class="duoshuo">
+	<!-- 多说评论框 start -->
+	<div class="ds-thread" data-thread-key="redlock-2016-03-13" data-title="Redis的分布式锁实现" data-url="http://yoursite.com/2016/03/13/redlock-2016-03-13/"></div>
+	<!-- 多说评论框 end -->
+	<!-- 多说公共JS代码 start (一个网页只需插入一次) -->
+	<script type="text/javascript">
+	var duoshuoQuery = {short_name:"true"};
+	(function() {
+		var ds = document.createElement('script');
+		ds.type = 'text/javascript';ds.async = true;
+		ds.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//static.duoshuo.com/embed.js';
+		ds.charset = 'UTF-8';
+		(document.getElementsByTagName('head')[0] 
+		 || document.getElementsByTagName('body')[0]).appendChild(ds);
+	})();
+	</script>
+	<!-- 多说公共JS代码 end -->
+</div>
+
+
+
+
+</div>
+      <footer id="footer">
+  <div class="outer">
+    <div id="footer-info">
+    	<div class="footer-left">
+    		&copy; 2016 waibolaobing
+    	</div>
+      	<div class="footer-right">
+      		<a href="http://hexo.io/" target="_blank">Hexo</a>  Theme <a href="https://github.com/litten/hexo-theme-yilia" target="_blank">Yilia</a> by Litten
+      	</div>
+    </div>
+  </div>
+</footer>
+    </div>
+    
+  <link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+
+
+<script>
+	var yiliaConfig = {
+		fancybox: true,
+		mathjax: true,
+		animate: true,
+		isHome: false,
+		isPost: true,
+		isArchive: false,
+		isTag: false,
+		isCategory: false,
+		open_in_new: false
+	}
+</script>
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script src="/js/main.js"></script>
+
+
+
+
+
+
+<script type="text/x-mathjax-config">
+MathJax.Hub.Config({
+    tex2jax: {
+        inlineMath: [ ['$','$'], ["\\(","\\)"]  ],
+        processEscapes: true,
+        skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+    }
+});
+
+MathJax.Hub.Queue(function() {
+    var all = MathJax.Hub.getAllJax(), i;
+    for(i=0; i < all.length; i += 1) {
+        all[i].SourceElement().parentNode.className += ' has-jax';                 
+    }       
+});
+</script>
+
+<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+
+
+  </div>
+</body>
+</html>
